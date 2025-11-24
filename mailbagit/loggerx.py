@@ -46,8 +46,19 @@ def setup_logging(level=None, stream_json=False, filename=None):
     from_env = os.environ.get("MAILBAGIT_LOG_LEVEL", None)
 
     level = from_env or logging.INFO
-    if isinstance(level, str) and level_re.match(level):
-        level = getattr(logging, level.upper())
+    # Normalize string levels
+    if isinstance(level, str):
+        lvl = level.lower()
+
+        # Aliases
+        if lvl == "warn":
+            lvl = "warning"
+
+        if level_re.match(lvl, re.IGNORECASE):
+            level = getattr(logging, lvl.upper())
+        else:
+            # fallback if unknown string
+            level = logging.INFO
 
     config = {
         "logging": default_logging_conf(level=level),

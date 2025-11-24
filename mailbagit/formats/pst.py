@@ -177,7 +177,16 @@ if not skip_registry:
 
                         try:
                             total_attachment_size_bytes = 0
-                            for i, attachmentObj in enumerate(messageObj.attachments):
+
+                            # messageObj.attachments typically fails in libpff >= 20231205 for messages without attachments
+                            try:
+                                raw_attachments = messageObj.attachments
+                            except Exception as e:
+                                desc = "Error parsing attachments. libpff raises this error for messages when no attachments are present."
+                                errors = common.handle_error(errors, e, desc, level="debug")
+                                raw_attachments = []
+
+                            for i, attachmentObj in enumerate(raw_attachments):
                                 total_attachment_size_bytes = total_attachment_size_bytes + attachmentObj.get_size()
                                 attachment_content = attachmentObj.read_buffer(attachmentObj.get_size())
 
@@ -366,7 +375,7 @@ if not skip_registry:
                         # Does not check path lengths for PSTs
                         errors,
                     )
-                errors.extend(new_errors)
+                    errors.extend(new_errors)
 
             if self.companion_files:
                 # Move all files into mailbag directory structure

@@ -1,4 +1,5 @@
 import os
+import logging
 import traceback
 import urllib.parse
 from pathlib import Path
@@ -23,6 +24,13 @@ def handle_error(errors, exception, desc, level="error"):
     Returns:
         errors (List): List of Error objects defined in models.py
     """
+
+    # If this is a debug-only error, only collect it if DEBUG logging is active
+    if level.lower() == "debug" and not log.isEnabledFor(logging.DEBUG):
+        # Still log.debug() for consistency, but skip creating an error object
+        log.debug(desc + ": " + repr(exception))
+        return errors
+
     if exception:
         error_msg = desc + ": " + repr(exception)
         stack_header = (
@@ -39,7 +47,9 @@ def handle_error(errors, exception, desc, level="error"):
 
     # print()
     log_msg = (error_msg[:150] + "..") if len(error_msg) > 150 else error_msg
-    if level == "warn":
+    if level.lower() == "debug":
+        log.debug(log_msg)
+    elif level.lower() in ("warn", "warning"):
         log.warn(log_msg)
     else:
         log.error(log_msg)
