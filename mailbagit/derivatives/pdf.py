@@ -50,6 +50,12 @@ if not skip_registry:
 
             try:
 
+                if message.Derivatives_Path is None or message.Mailbag_Message_ID is None:
+                    desc = "Missing message path metadata, no PDF derivative created"
+                    errors = common.handle_error(errors, None, desc, "warn")
+                    message.Errors.extend(errors)
+                    return message
+
                 out_dir = os.path.join(self.format_subdirectory, message.Derivatives_Path)
                 filename = os.path.join(out_dir, str(message.Mailbag_Message_ID))
                 errors = common.check_path_length(out_dir, errors)
@@ -80,6 +86,11 @@ if not skip_registry:
                             command = [
                                 wkhtmltopdf,
                                 "--disable-javascript",
+                                "--enable-local-file-access",
+                                "--load-error-handling",
+                                "ignore",
+                                "--load-media-error-handling",
+                                "ignore",
                                 os.path.abspath(html_name),
                                 os.path.abspath(pdf_name),
                             ]

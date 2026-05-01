@@ -6,6 +6,7 @@ import mailbagit
 import pytest
 import email
 import os
+from datetime import datetime, timezone
 
 # This is a mock object representing the args returned from argparse/Gooey
 @pytest.fixture
@@ -101,7 +102,12 @@ def test_MSG(cli_args):
                                     assert dump == compare
                     assert match == True
             else:
-                assert str(getattr(message, field[0])).strip() == str(getattr(expected, field[0])).strip()
+                if field[0] == "Date":
+                    compare_date = datetime.fromisoformat(str(getattr(message, field[0])).strip())
+                    expected_date = datetime.fromisoformat(str(getattr(expected, field[0])).strip())
+                    assert compare_date.astimezone(timezone.utc) == expected_date.astimezone(timezone.utc)
+                else:
+                    assert str(getattr(message, field[0])).strip() == str(getattr(expected, field[0])).strip()
 
 
 def test_EML(cli_args):

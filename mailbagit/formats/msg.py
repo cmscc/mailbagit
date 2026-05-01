@@ -189,10 +189,19 @@ class MSG(EmailAccount):
                         if contentID is None:
                             contentID = uuid.uuid4().hex
 
+                        attachment_data = mailAttachment.data
+                        if not isinstance(attachment_data, bytes):
+                            try:
+                                attachment_data = bytes(attachment_data)
+                            except Exception as e:
+                                desc = "Attachment payload is not bytes; encoding to UTF-8 bytes"
+                                errors = common.handle_error(errors, e, desc, "warn")
+                                attachment_data = str(attachment_data).encode("utf-8", errors="replace")
+
                         attachment = Attachment(
                             Name=attachmentName,
                             WrittenName=attachmentWrittenName,
-                            File=mailAttachment.data,
+                            File=attachment_data,
                             MimeType=mime,
                             Content_ID=contentID,
                         )
@@ -202,13 +211,22 @@ class MSG(EmailAccount):
                     desc = "Error parsing attachments"
                     errors = common.handle_error(errors, e, desc)
 
+                parsed_date = None
+                try:
+                    msg_date = mail.date
+                    if msg_date is not None:
+                        parsed_date = str(msg_date)
+                except Exception as e:
+                    desc = "Error reading message date"
+                    errors = common.handle_error(errors, e, desc, "warn")
+
                 message = Email(
                     Errors=errors,
                     Message_ID=mail.messageId,
                     Original_File=originalFile,
                     Message_Path=messagePath,
                     Derivatives_Path=derivativesPath,
-                    Date=str(mail.date),
+                    Date=parsed_date,
                     From=mail.sender,
                     To=mail.to,
                     Cc=mail.cc,
