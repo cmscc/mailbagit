@@ -121,6 +121,12 @@ def writeAttachmentsToDisk(dry_run, attachments_dir, message):
                     ext = mimetypes.guess_extension(attachment.MimeType) or ""
                 if not ext:
                     ext = ".bin"
+                # Strip control chars (incl. nulls leaked from MSG PT_STRING8
+                # properties) — they propagate from attachment.Name into ext
+                # and would break open() a second time.
+                ext = "".join(c for c in ext if ord(c) >= 0x20)
+                if not ext.startswith("."):
+                    ext = "." + ext if ext else ".bin"
                 random_name = "".join(random.choices(string.ascii_letters + string.digits, k=8)) + ext
                 desc = (
                     f"Failed to write attachment {attachment.Name} even as normalized name {writtenName}. Instead writing as {random_name}."
