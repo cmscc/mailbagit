@@ -74,6 +74,18 @@ def normalizePath(path):
     Returns:
         out_path (str): Safe path/to/stuff
     """
+    # Strip control characters (0x00-0x1F) that some MSG files leak from
+    # PT_STRING8 properties. open() rejects any path containing \x00, and
+    # other control chars are invalid in filenames on Windows. Also trim
+    # trailing dots and spaces, which Windows silently drops.
+    if path:
+        path = "".join(c for c in path if ord(c) >= 0x20)
+        # Re-strip per path component so we don't trim meaningful separators
+        parts = []
+        for part in path.replace("\\", "/").split("/"):
+            parts.append(part.rstrip(". "))
+        path = os.path.join(*parts) if parts else path
+
     if os.name == "nt":
         specials = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
         special_names = [
