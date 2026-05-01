@@ -12,6 +12,7 @@ import mailbagit.helper.common as common
 import mailbagit.globals as globals
 import chardet
 import uuid
+from datetime import timezone, timedelta
 
 log = get_logger()
 
@@ -226,7 +227,7 @@ class MSG(EmailAccount):
                     Original_File=originalFile,
                     Message_Path=messagePath,
                     Derivatives_Path=derivativesPath,
-                    Date=parsed_date,
+                    Date=str(mail.date.astimezone(timezone(timedelta(hours=-5)))),
                     From=mail.sender,
                     To=mail.to,
                     Cc=mail.cc,
