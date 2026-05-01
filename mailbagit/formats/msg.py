@@ -1,5 +1,6 @@
 import extract_msg
 import os
+import mimetypes
 from pathlib import Path
 from email import parser
 from mailbagit.loggerx import get_logger
@@ -134,40 +135,47 @@ class MSG(EmailAccount):
 
                 try:
                     for i, mailAttachment in enumerate(mail.attachments):
-                        if mailAttachment.getFilename():
-                            attachmentName = mailAttachment.getFilename()
-                        elif mailAttachment.longFilename:
-                            attachmentName = mailAttachment.longFilename
-                        elif mailAttachment.shortFilename:
-                            attachmentName = mailAttachment.shortFilename
-                        else:
-                            attachmentName = None
-                            desc = "No filename found for attachment, integer will be used instead"
-                            errors = common.handle_error(errors, None, desc)
-
-                        # Handle attachments.csv conflict
-                        # helper.controller.writeAttachmentsToDisk() handles this
-                        if attachmentName:
-                            if attachmentName.lower() == "attachments.csv":
-                                desc = "attachment " + attachmentName + " will be renamed to avoid filename conflict with mailbag spec"
-                                errors = common.handle_error(errors, None, desc, "warn")
-                                attachmentWrittenName = str(i) + os.path.splitext(attachmentName)[1]
-                            else:
-                                attachmentWrittenName = common.normalizePath(attachmentName.replace("/", "%2F"))
-                        else:
-                            attachmentWrittenName = str(i)
-
-                        # Try to get the mime, guess it if this doesn't work
+                        # Read the mime up-front; we may need it to derive an extension
+                        # when the MSG has no usable filename property.
                         mime = None
                         try:
                             mime = mailAttachment.mimetype
                         except Exception as e:
                             desc = "Error reading mime type, guessing it instead"
                             errors = common.handle_error(errors, e, desc, "warn")
+
+                        # Resolve an attachment name. Do NOT call getFilename(),
+                        # because extract_msg falls back to a non-reproducible
+                        # "UnknownFilename XXXXX.bin" string when the MSG has
+                        # neither PR_ATTACH_LONG_FILENAME nor PR_ATTACH_FILENAME
+                        # (typical for inline cid: images). Build a deterministic
+                        # name from the index and a mime-derived extension instead.
+                        attachmentName = None
+                        if mailAttachment.longFilename:
+                            attachmentName = mailAttachment.longFilename
+                        elif mailAttachment.shortFilename:
+                            attachmentName = mailAttachment.shortFilename
+                        else:
+                            ext = mimetypes.guess_extension(mime) if mime else None
+                            if not ext:
+                                ext = ".bin"
+                            attachmentName = "attachment_" + str(i) + ext
+                            desc = "No filename found for attachment, using " + attachmentName + " instead"
+                            errors = common.handle_error(errors, None, desc, "warn")
+
+                        # Handle attachments.csv conflict
+                        # helper.controller.writeAttachmentsToDisk() handles this
+                        if attachmentName.lower() == "attachments.csv":
+                            desc = "attachment " + attachmentName + " will be renamed to avoid filename conflict with mailbag spec"
+                            errors = common.handle_error(errors, None, desc, "warn")
+                            attachmentWrittenName = str(i) + os.path.splitext(attachmentName)[1]
+                        else:
+                            attachmentWrittenName = common.normalizePath(attachmentName.replace("/", "%2F"))
+
+                        # If mime still wasn't read, guess from the resolved name
                         if mime is None:
-                            if attachmentName:
-                                mime = format.guessMimeType(attachmentName)
-                            else:
+                            mime = format.guessMimeType(attachmentName)
+                            if mime is None:
                                 desc = "Mimetype not found. Setting it to 'application/octet-stream'"
                                 errors = common.handle_error(errors, None, desc, "warn")
                                 mime = "application/octet-stream"
