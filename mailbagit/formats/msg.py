@@ -12,6 +12,7 @@ import mailbagit.helper.common as common
 import mailbagit.globals as globals
 import chardet
 import uuid
+from datetime import timezone, timedelta
 
 log = get_logger()
 
@@ -189,10 +190,19 @@ class MSG(EmailAccount):
                         if contentID is None:
                             contentID = uuid.uuid4().hex
 
+                        attachment_data = mailAttachment.data
+                        if not isinstance(attachment_data, bytes):
+                            try:
+                                attachment_data = bytes(attachment_data)
+                            except Exception as e:
+                                desc = "Attachment payload is not bytes; encoding to UTF-8 bytes"
+                                errors = common.handle_error(errors, e, desc, "warn")
+                                attachment_data = str(attachment_data).encode("utf-8", errors="replace")
+
                         attachment = Attachment(
                             Name=attachmentName,
                             WrittenName=attachmentWrittenName,
-                            File=mailAttachment.data,
+                            File=attachment_data,
                             MimeType=mime,
                             Content_ID=contentID,
                         )
@@ -208,7 +218,7 @@ class MSG(EmailAccount):
                     Original_File=originalFile,
                     Message_Path=messagePath,
                     Derivatives_Path=derivativesPath,
-                    Date=str(mail.date),
+                    Date=str(mail.date.astimezone(timezone(timedelta(hours=-5)))),
                     From=mail.sender,
                     To=mail.to,
                     Cc=mail.cc,
