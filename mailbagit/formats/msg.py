@@ -212,6 +212,15 @@ class MSG(EmailAccount):
                     desc = "Error parsing attachments"
                     errors = common.handle_error(errors, e, desc)
 
+                parsed_date = None
+                try:
+                    msg_date = mail.date
+                    if msg_date is not None:
+                        parsed_date = str(msg_date)
+                except Exception as e:
+                    desc = "Error reading message date"
+                    errors = common.handle_error(errors, e, desc, "warn")
+
                 message = Email(
                     Errors=errors,
                     Message_ID=mail.messageId,
