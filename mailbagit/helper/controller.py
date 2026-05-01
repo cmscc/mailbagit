@@ -4,6 +4,7 @@ from time import time
 import csv
 import random
 import string
+import mimetypes
 
 import mailbagit.helper.common as common
 import mailbagit.globals as globals
@@ -110,11 +111,22 @@ def writeAttachmentsToDisk(dry_run, attachments_dir, message):
                 f.write(attachment.File)
                 f.close()
             except Exception as e:
-                random_name = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+                # Preserve a sensible extension so the random fallback name
+                # is still openable / identifiable. Try the original name's
+                # extension first, then derive one from the mime type.
+                ext = ""
+                if attachment.Name:
+                    ext = os.path.splitext(attachment.Name)[1]
+                if not ext and attachment.MimeType:
+                    ext = mimetypes.guess_extension(attachment.MimeType) or ""
+                if not ext:
+                    ext = ".bin"
+                random_name = "".join(random.choices(string.ascii_letters + string.digits, k=8)) + ext
                 desc = (
                     f"Failed to write attachment {attachment.Name} even as normalized name {writtenName}. Instead writing as {random_name}."
                 )
-                errors = common.handle_error([], None, desc, "error")
+                # Pass the actual exception so errors.csv records *why* the write failed
+                errors = common.handle_error([], e, desc, "error")
                 attachment_row = [attachment.Name, random_name, attachment.MimeType, attachment.Content_ID]
                 attachment_path = os.path.join(message_attachments_dir, random_name)
                 f = open(attachment_path, "wb")
