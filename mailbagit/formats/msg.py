@@ -86,6 +86,8 @@ class MSG(EmailAccount):
 
             attachments = []
             errors = []
+            messagePath = ""
+            derivativesPath = ""
             try:
                 mail = extract_msg.openMsg(filePath)
                 # Parse message bodies
@@ -221,21 +223,32 @@ class MSG(EmailAccount):
                     desc = "Error reading message date"
                     errors = common.handle_error(errors, e, desc, "warn")
 
+                def safe_mail_attr(getter, desc, level="warn"):
+                    try:
+                        return getter()
+                    except Exception as e:
+                        nonlocal_errors = common.handle_error([], e, desc, level)
+                        errors.extend(nonlocal_errors)
+                        return None
+
+                header_obj = safe_mail_attr(lambda: mail.header, "Error reading message headers")
+                content_type = safe_mail_attr(lambda: header_obj.get_content_type() if header_obj else None, "Error reading content type")
+
                 message = Email(
                     Errors=errors,
-                    Message_ID=mail.messageId,
+                    Message_ID=safe_mail_attr(lambda: mail.messageId, "Error reading message id"),
                     Original_File=originalFile,
                     Message_Path=messagePath,
                     Derivatives_Path=derivativesPath,
-                    Date=str(mail.date.astimezone(timezone(timedelta(hours=-5)))),
-                    From=mail.sender,
-                    To=mail.to,
-                    Cc=mail.cc,
-                    Bcc=mail.bcc,
-                    Subject=mail.subject,
-                    Content_Type=mail.header.get_content_type(),
+                    Date=parsed_date,
+                    From=safe_mail_attr(lambda: mail.sender, "Error reading sender"),
+                    To=safe_mail_attr(lambda: mail.to, "Error reading recipients"),
+                    Cc=safe_mail_attr(lambda: mail.cc, "Error reading cc list"),
+                    Bcc=safe_mail_attr(lambda: mail.bcc, "Error reading bcc list"),
+                    Subject=safe_mail_attr(lambda: mail.subject, "Error reading subject"),
+                    Content_Type=content_type,
                     # mail.header appears to be a headers object oddly enough
-                    Headers=mail.header,
+                    Headers=header_obj,
                     HTML_Body=html_body,
                     HTML_Encoding=html_encoding,
                     Text_Body=text_body,
